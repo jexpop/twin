@@ -8,58 +8,39 @@ from typing import Optional, List, Dict
 import json
 import uuid
 from datetime import datetime
-from pathlib import Path
+import boto3
+from botocore.exceptions import ClientError
+from context import prompt
 
-# Load environment variables
-load_dotenv(override=True)
+# Cargar variables de entorno
+load_dotenv()
 
 app = FastAPI()
 
-# Configure CORS
+# Configurar CORS
 origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Initialize OpenAI client
-client = OpenAI()
+# Cliente OpenAI
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Memory directory
-MEMORY_DIR = Path("../memory")
-MEMORY_DIR.mkdir(exist_ok=True)
+# Configuración de almacenamiento de memoria
+USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
+S3_BUCKET = os.getenv("S3_BUCKET", "")
+MEMORY_DIR = os.getenv("MEMORY_DIR", "../memory")
 
-
-# Load personality details
-def load_personality():
-    with open("me.txt", "r", encoding="utf-8") as f:
-        return f.read().strip()
-
-
-PERSONALITY = load_personality()
+# Cliente S3 si corresponde
+if USE_S3:
+    s3_client = boto3.client("s3")
 
 
-# Memory functions
-def load_conversation(session_id: str) -> List[Dict]:
-    """Load conversation history from file"""
-    file_path = MEMORY_DIR / f"{session_id}.json"
-    if file_path.exists():
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
-
-
-def save_conversation(session_id: str, messages: List[Dict]):
-    """Save conversation history to file"""
-    file_path = MEMORY_DIR / f"{session_id}.json"
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(messages, f, indent=2, ensure_ascii=False)
-
-
-# Request/Response models
+# Modelos de petición/respuesta
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
@@ -70,75 +51,127 @@ class ChatResponse(BaseModel):
     session_id: str
 
 
+class Message(BaseModel):
+    role: str
+    content: str
+    timestamp: str
+
+
+# Funciones de gestión de memoria
+def get_memory_path(session_id: str) -> str:
+    return f"{session_id}.json"
+
+
+def load_conversation(session_id: str) -> List[Dict]:
+    """Cargar historial de conversación desde el almacenamiento"""
+    if USE_S3:
+        try:
+            response = s3_client.get_object(Bucket=S3_BUCKET, Key=get_memory_path(session_id))
+            return json.loads(response["Body"].read().decode("utf-8"))
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchKey":
+                return []
+            raise
+    else:
+        # Almacenamiento local
+        file_path = os.path.join(MEMORY_DIR, get_memory_path(session_id))
+        if os.path.exists(file_path):
+            with open(file_path, "r") as f:
+                return json.load(f)
+        return []
+
+
+def save_conversation(session_id: str, messages: List[Dict]):
+    """Guardar historial de conversación en el almacenamiento"""
+    if USE_S3:
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=get_memory_path(session_id),
+            Body=json.dumps(messages, indent=2),
+            ContentType="application/json",
+        )
+    else:
+        # Almacenamiento local
+        os.makedirs(MEMORY_DIR, exist_ok=True)
+        file_path = os.path.join(MEMORY_DIR, get_memory_path(session_id))
+        with open(file_path, "w") as f:
+            json.dump(messages, f, indent=2)
+
+
 @app.get("/")
 async def root():
-    return {"message": "API de Gemelo Digital con Memoria"}
+    return {
+        "message": "API Gemelo Digital IA",
+        "memory_enabled": True,
+        "storage": "S3" if USE_S3 else "local",
+    }
 
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "use_s3": USE_S3}
 
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
-        # Generate session ID if not provided
+        # Generar session ID si no se proporciona
         session_id = request.session_id or str(uuid.uuid4())
-        
-        # Load conversation history
+
+        # Cargar historial de conversación
         conversation = load_conversation(session_id)
-        
-        # Build messages with history
-        messages = [{"role": "system", "content": PERSONALITY}]
-        
-        # Add conversation history
-        for msg in conversation:
-            messages.append(msg)
-        
-        # Add current message
+
+        # Construir mensajes para OpenAI
+        messages = [{"role": "system", "content": prompt()}]
+
+        # Añadir historial (últimos 10 mensajes para el contexto)
+        for msg in conversation[-10:]:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+
+        # Añadir mensaje actual del usuario
         messages.append({"role": "user", "content": request.message})
-        
-        # Call OpenAI API
+
+        # Llamar a la API de OpenAI
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model="gpt-4.1-mini", 
             messages=messages
         )
-        
+
         assistant_response = response.choices[0].message.content
-        
-        # Update conversation history
-        conversation.append({"role": "user", "content": request.message})
-        conversation.append({"role": "assistant", "content": assistant_response})
-        
-        # Save updated conversation
-        save_conversation(session_id, conversation)
-        
-        return ChatResponse(
-            response=assistant_response,
-            session_id=session_id
+
+        # Actualizar historial de conversación
+        conversation.append(
+            {"role": "user", "content": request.message, "timestamp": datetime.now().isoformat()}
+        )
+        conversation.append(
+            {
+                "role": "assistant",
+                "content": assistant_response,
+                "timestamp": datetime.now().isoformat(),
+            }
         )
 
+        # Guardar conversación
+        save_conversation(session_id, conversation)
+
+        return ChatResponse(response=assistant_response, session_id=session_id)
+
+    except Exception as e:
+        print(f"Error en endpoint /chat: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/conversation/{session_id}")
+async def get_conversation(session_id: str):
+    """Recuperar historial de conversación"""
+    try:
+        conversation = load_conversation(session_id)
+        return {"session_id": session_id, "messages": conversation}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/sessions")
-async def list_sessions():
-    """List all conversation sessions"""
-    sessions = []
-    for file_path in MEMORY_DIR.glob("*.json"):
-        session_id = file_path.stem
-        with open(file_path, "r", encoding="utf-8") as f:
-            conversation = json.load(f)
-            sessions.append({
-                "session_id": session_id,
-                "message_count": len(conversation),
-                "last_message": conversation[-1]["content"] if conversation else None
-            })
-    return {"sessions": sessions}
-
-
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

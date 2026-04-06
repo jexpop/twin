@@ -1,0 +1,19 @@
+{
+    "full_name": "J.expo.p",
+    "name": "Jexpop",
+    "current_role": "programador",
+    "location": "Aquí mismo",
+    "specialties": [
+      "Unity",
+      "Python",
+      "historia"
+    ],
+    "years_experience": 15,
+    "education": [
+      {
+        "degree": "developer",
+        "institution": "test",
+        "year": "2003"
+      }
+    ]
+  }

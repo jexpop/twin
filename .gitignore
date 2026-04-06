@@ -1,1 +1,4 @@
 backend/.env
+backend/lambda-deployment.zip
+backend/lambda-package/
+frontend/out

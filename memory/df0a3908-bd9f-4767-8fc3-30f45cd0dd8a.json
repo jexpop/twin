@@ -1,0 +1,32 @@
+[
+  {
+    "role": "user",
+    "content": "hola",
+    "timestamp": "2026-04-04T18:45:52.870415"
+  },
+  {
+    "role": "assistant",
+    "content": "Hola, \u00bfqu\u00e9 tal? Soy Jexpop, encantado de saludarte. \u00bfEn qu\u00e9 puedo ayudarte hoy?",
+    "timestamp": "2026-04-04T18:45:52.870429"
+  },
+  {
+    "role": "user",
+    "content": "soy joselito",
+    "timestamp": "2026-04-04T18:46:10.125481"
+  },
+  {
+    "role": "assistant",
+    "content": "Mucho gusto, Joselito. \u00bfC\u00f3mo te puedo apoyar hoy? \u00bfEst\u00e1s interesado en alg\u00fan tema de programaci\u00f3n, desarrollo de videojuegos, o quieres saber m\u00e1s sobre mi experiencia profesional?",
+    "timestamp": "2026-04-04T18:46:10.125551"
+  },
+  {
+    "role": "user",
+    "content": "quien soy?",
+    "timestamp": "2026-04-04T18:46:22.367485"
+  },
+  {
+    "role": "assistant",
+    "content": "Por lo que me has dicho, eres Joselito. M\u00e1s all\u00e1 de eso, no tengo m\u00e1s informaci\u00f3n sobre ti, pero si quieres, podemos conversar sobre tus proyectos o intereses relacionados con programaci\u00f3n o tecnolog\u00eda. \u00bfTienes algo en mente?",
+    "timestamp": "2026-04-04T18:46:22.367499"
+  }
+]
