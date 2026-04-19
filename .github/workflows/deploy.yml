@@ -49,7 +49,7 @@ jobs:
       - name: Configurar Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_wrapper: false
+          terraform_wrapper: false  # Importante: desactivar wrapper para outputs puros
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -60,12 +60,11 @@ jobs:
 
       - name: Ejecutar script de despliegue
         run: |
-          # Pasamos los datos del backend como variables de entorno al script
-          export TF_STATE_BUCKET=${{ secrets.TF_STATE_BUCKET_NAME }}
-          export TF_STATE_REGION=${{ secrets.DEFAULT_AWS_REGION }}
+          # Variables de entorno para el script
           export AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}
           export DEFAULT_AWS_REGION=${{ secrets.DEFAULT_AWS_REGION }}
           
+          # Haz ejecutable el script y ejecútalo
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh ${{ github.event.inputs.environment || 'dev' }}
         env:
@@ -75,14 +74,7 @@ jobs:
         id: deploy_outputs
         working-directory: ./terraform
         run: |
-          # Re-inicialización necesaria para que este paso reconozca el backend S3
-          terraform init \
-            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET_NAME }}" \
-            -backend-config="key=terraform.tfstate" \
-            -backend-config="region=${{ secrets.DEFAULT_AWS_REGION }}"
-          
           terraform workspace select ${{ github.event.inputs.environment || 'dev' }}
-          
           echo "cloudfront_url=$(terraform output -raw cloudfront_url)" >> $GITHUB_OUTPUT
           echo "api_url=$(terraform output -raw api_gateway_url)" >> $GITHUB_OUTPUT
           echo "frontend_bucket=$(terraform output -raw s3_frontend_bucket)" >> $GITHUB_OUTPUT
