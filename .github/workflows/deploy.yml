@@ -74,6 +74,13 @@ jobs:
         id: deploy_outputs
         working-directory: ./terraform
         run: |
+        # 1. INDISPENSABLE: Volver a inicializar para conectar con el backend S3
+                  terraform init \
+                    -backend-config="bucket=${{ secrets.TF_STATE_BUCKET_NAME }}" \
+                    -backend-config="key=terraform.tfstate" \
+                    -backend-config="region=${{ secrets.DEFAULT_AWS_REGION }}" \
+                    -reconfigure
+
           terraform workspace select ${{ github.event.inputs.environment || 'dev' }}
           echo "cloudfront_url=$(terraform output -raw cloudfront_url)" >> $GITHUB_OUTPUT
           echo "api_url=$(terraform output -raw api_gateway_url)" >> $GITHUB_OUTPUT
