@@ -4,31 +4,38 @@
 .terraform/
 .terraform.lock.hcl
 terraform.tfstate.d/
-*.tfvars
-!terraform.tfvars
-!prod.tfvars
+*.tfvars.secret
 
 # Paquetes Lambda
 lambda-deployment.zip
 lambda-package/
 
+# Almacenamiento de memoria (contiene el historial de conversaciones)
+memory/
+
 # Archivos de entorno
 .env
 .env.*
+!.env.example
 
 # Node
 node_modules/
 out/
 .next/
+*.log
 
 # Python
 __pycache__/
 *.pyc
 .venv/
-uv.lock
+venv/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 .DS_Store
+Thumbs.db
+
+# AWS
+.aws/
