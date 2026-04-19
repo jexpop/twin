@@ -1,4 +1,34 @@
-backend/.env
-backend/lambda-deployment.zip
-backend/lambda-package/
-frontend/out
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate.d/
+*.tfvars
+!terraform.tfvars
+!prod.tfvars
+
+# Paquetes Lambda
+lambda-deployment.zip
+lambda-package/
+
+# Archivos de entorno
+.env
+.env.*
+
+# Node
+node_modules/
+out/
+.next/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+uv.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
